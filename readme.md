@@ -1,2 +1,2 @@
-# webscraping wiht python and beatiful soup
-This folder contains scripts to practice the html scraping with python and beatiful soup
+# webscraping with python and beautifulSoup
+This folder contains scripts to practice xml and html scraping with python and beatifulSoup
