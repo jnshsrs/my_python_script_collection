@@ -6,6 +6,7 @@ from glob import glob
 from collections import Counter
 import csv
 import os
+import numpy as np
 
 globObj = glob('/Users/igw/documents/qualitätsberichte/Berichte-KH/*.xml')
 
@@ -16,23 +17,25 @@ def parseXML(XMLpath):
 		bsObj = bs(xmlfile, 'html.parser')
 		return(bsObj)
 
+# function will catch data from xml with the function find
 def getKontaktdaten(beautifulSoupObject,key):
-	d[key].append(beautifulSoupObject.find(key).string)
-
+	tag_values = []
+	tag_values.append(beautifulSoupObject.find(key).string)
+	return(tag_values)
 # function takes bsObj (quality report data) and returns IK number (Unique identifier for each hosptial)
 def getIK(beautifulSoupObject):
 	ik = beautifulSoupObject.find('ik').string
 	return(ik)	
 
-
-# parse xml file with function: parseXML
-# get hospital data from krankenhaus > kontaktdaten tag
 d = {'ik':[], 'name':[], 'email':[],'url':[], 'standortnummer':[], 'url_homepage_krankenhaus':[], 'art':[]}
-for file in globObj[0:2]:
-	bsObj = parseXML(file)
-	kh_kontakt = bsObj
-	for key in d:
-		getKontaktdaten(kh_kontakt, key)
 
-for value in d:
-	print value 
+tags = []
+for key in d:
+	tags.append(key)
+
+for filepath in globObj[0]:
+	bsObj = parseXML(filepath)
+
+
+
+print tags
