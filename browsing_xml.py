@@ -4,38 +4,35 @@
 from bs4 import BeautifulSoup as bs
 from glob import glob
 from collections import Counter
+import csv
+import os
 
 globObj = glob('/Users/igw/documents/qualitätsberichte/Berichte-KH/*.xml')
 
+# function to parse xml files
 def parseXML(XMLpath):
 	with open(XMLpath) as xmlfile:
 		xmlfile = xmlfile.read()
 		bsObj = bs(xmlfile, 'html.parser')
 		return(bsObj)
 
+def getKontaktdaten(beautifulSoupObject,key):
+	d[key].append(beautifulSoupObject.find(key).string)
 
-bsObj = parseXML(globObj[5])
-for tag in bsObj.qualitaetsbericht.children:
-	if not tag.name == None:
-		print tag.name
-		for a in tag.children:
-			if not a.name == None:
-				print '\t', a.name
-				for b in a.children:
-					if not b.name == None:
-						print '\t', '\t', b.name
-							
-	
-# cntr = Counter(globObj)
-# print(len(globObj)) # There are 2193 quality reports for 2013
-
-# This will give back the bed count for every quality report
-#bettenList = [] 
-#for filePath in globObj[0:20]:
-#	bsObj = parseXML(filePath)
-#	betten = int(bsObj.qualitaetsbericht.anzahl_betten.string)
-#	bettenList.append(betten)
-
-#print bettenList
+# function takes bsObj (quality report data) and returns IK number (Unique identifier for each hosptial)
+def getIK(beautifulSoupObject):
+	ik = beautifulSoupObject.find('ik').string
+	return(ik)	
 
 
+# parse xml file with function: parseXML
+# get hospital data from krankenhaus > kontaktdaten tag
+d = {'ik':[], 'name':[], 'email':[],'url':[], 'standortnummer':[], 'url_homepage_krankenhaus':[], 'art':[]}
+for file in globObj[0:2]:
+	bsObj = parseXML(file)
+	kh_kontakt = bsObj
+	for key in d:
+		getKontaktdaten(kh_kontakt, key)
+
+for value in d:
+	print value 
