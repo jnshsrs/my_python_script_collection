@@ -8,7 +8,9 @@ import csv
 import os
 import numpy as np
 
-globObj = glob('/Users/igw/documents/qualitätsberichte/Berichte-KH/*.xml')
+pathToXMLfiles = './qualit_berichte/*.xml'
+
+globObj = glob(pathToXMLfiles)
 
 # function to parse xml files
 def parseXML(XMLpath):
@@ -19,23 +21,24 @@ def parseXML(XMLpath):
 
 # function will catch data from xml with the function find
 def getKontaktdaten(beautifulSoupObject,key):
-	tag_values = []
-	tag_values.append(beautifulSoupObject.find(key).string)
-	return(tag_values)
+	values = []
+	for tag in key:
+		try:
+			val = beautifulSoupObject.find(tag).string
+		except:
+			val = 'Null'
+		values.append(val)
+	return(values)
+
 # function takes bsObj (quality report data) and returns IK number (Unique identifier for each hosptial)
 def getIK(beautifulSoupObject):
 	ik = beautifulSoupObject.find('ik').string
 	return(ik)	
 
-d = {'ik':[], 'name':[], 'email':[],'url':[], 'standortnummer':[], 'url_homepage_krankenhaus':[], 'art':[]}
-
-tags = []
-for key in d:
-	tags.append(key)
-
-for filepath in globObj[0]:
-	bsObj = parseXML(filepath)
-
-
-
-print tags
+tags = ['ik', 'name', 'email','url', 'standortnummer', 'url_homepage_krankenhaus','art']
+listKontaktdaten = []
+for XMLfile in globObj:
+	bsObj = parseXML(XMLpath = XMLfile)
+	tag_values = getKontaktdaten(beautifulSoupObject = bsObj, key = tags)
+	print tag_values
+	listKontaktdaten.append(tag_values)
