@@ -25,13 +25,22 @@ def createTableHospital():
 			id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
 			ik VARCHAR(255),
 			standort_nummer VARCHAR(255),
+			name VARCHAR(255), 
+			ik_from_xml VARCHAR(255),
+			standort_nummer_from_xml VARCHAR(255),
 			straße VARCHAR(255),
 			hausnummer VARCHAR(255),
 			postleitzahl VARCHAR(255),
 			ort VARCHAR(255),
+			traeger_name VARCHAR(255),
+			traeger_art VARCHAR(255),
+			anzahl_betten INT,
+			vollstationaere_fallzahl INT,
+			teilstationaere_fallzahl INT,
+			ambulante_fallzahl INT,
 			created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)
 		''')
-
+createTableHospital()
 # function to open a xml file and create a beatifulSoup object
 def openQualiBerichte(file):
 	xml_path = file
@@ -45,15 +54,28 @@ def getTag(person):
 	person = bsObj.find(person)
 	return person
 
+def getValuesFromParentTag(parentBSObj, valueTagNames, lstToAppend):
+	for tag in valueTagNames:
+					try:
+						currentValue = parentBSObj.find(tag).string
+						lstToAppend.append(currentValue)
+					except:
+						currentValue = None
+						lstToAppend.append(currentValue)
+
 sql_insert_pdf = '''
-INSERT INTO tbl_pflegedienstleitung (ik,standort_nummer,titel, vorname, nachname, position, vorwahl, rufnummer, durchwahl, email)
-	VALUES ('%s','%s','%s','%s', '%s', '%s', '%s', '%s', '%s', '%s'); 
+INSERT INTO tbl_hospitalData 
+			(ik, standort_nummer, name, ik_from_xml, standort_nummer_from_xml, straße, 
+			hausnummer, postleitzahl, ort, traeger_name,
+			traeger_art, anzahl_betten, vollstationaere_fallzahl, 
+			teilstationaere_fallzahl, ambulante_fallzahl)
+	VALUES ('%s','%s','%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'); 
 '''
 
 pathToXMLfiles = "../Qualitaetsberichte/Berichte-KH/*.xml"
 # create list ob xml files in the prespecified path
 globObj = glob.glob(pathToXMLfiles)
-globObj = globObj[0:3]
+
 cnt = 0
 absolut =  float(len(globObj))
 
@@ -64,63 +86,39 @@ for xmlFile in globObj:
 		if(not '-99-' in xmlFile):
 			print 'Data extraction started.'
 			bsObj = openQualiBerichte(xmlFile)
+			
+			ik = re.findall('[0-9]{9}', xmlFile)[0]
+			standortnummer = re.findall('[0-9]{2}', re.findall('-[0-9]{2}-', xmlFile)[0])[0]
+			valueLst = [ik, standortnummer]
+
 			# Adressdaten
 			currentTag = getTag('kontaktdaten')
 			tagsKrankenhausAdresse = ['name', 'ik', 'standortnummer', 'strasse', 
 									  'hausnummer', 'postleitzahl', 'ort']
-			ik = re.findall('[0-9]{9}', xmlFile)[0]
-			standortnummer = re.findall('-[0-9]{2}-', xmlFile)[0]
-			standortnummer = re.findall('[0-9]{2}', standortnummer)[0]
-			valueLst = [ik, standortnummer]
-
-			for tag in tagsKrankenhausAdresse:
-				try:
-					currentValue = currentTag.find(tag).string
-					valueLst.append(currentValue)
-				except:
-					currentValue = None
-					valueLst.append(currentValue)
+			getValuesFromParentTag(parentBSObj = currentTag, valueTagNames = tagsKrankenhausAdresse, lstToAppend = valueLst)
 
 			# Trägerdaten
 			currentTag = getTag('krankenhaustraeger')
 			tagsKrankenhausTraeger = ['name', 'art']
-			for tag in tagsKrankenhausTraeger:
-				try:
-					currentValue = currentTag.find(tag).string
-					valueLst.append(currentValue)
-				except:
-					currentValue = None
-					valueLst.append(currentValue)
+			getValuesFromParentTag(parentBSObj = currentTag, valueTagNames = tagsKrankenhausTraeger, lstToAppend = valueLst)
 			
+
+			# Bettenanzahl
 			currentValue = bsObj.find('anzahl_betten').string
 			valueLst.append(currentValue)
-			print 'Adresse: ', valueLst
-			
+
 			# Demografische Daten
 			currentTag = getTag('fallzahlen')
 			tagsKrankenhausFallzahlen = ['vollstationaere_fallzahl', 'teilstationaere_fallzahl', 'ambulante_fallzahl']
-			for tag in tagsKrankenhausFallzahlen:
-				try:
-					currentValue = currentTag.find(tag).string
-					valueLst.append(currentValue)
-				except:
-					currentValue = None
-					valueLst.append(currentValue)
-			print valueLst	
-	
-
-
-
-
-
+			getValuesFromParentTag(parentBSObj = currentTag, valueTagNames = tagsKrankenhausFallzahlen, lstToAppend = valueLst)
 			
-			#cur.execute(sql_insert_pdf % tuple(valueLst))
-			#print('data inserted, %', relative)
-
-
+			print valueLst
+			cur.execute(sql_insert_pdf % tuple(valueLst))
+			print('data inserted, %', relative)
 	except:
 		print('Error occured Inserting NULLS, %', relative)
-		#cur.execute(sql_insert_pdf % tuple(None, None, None, None, None, None, None, None, None, None))
+		print('The Previous IK was:', ik)
+				
 conn.commit()
 cur.close() 
 conn.close()
