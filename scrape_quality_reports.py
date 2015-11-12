@@ -17,25 +17,6 @@ conn = pymysql.connect(host='131.173.88.189', unix_socket='/var/run/mysqld/mysql
 	user='huesers', passwd= pw, db='huesers', charset='utf8')
 cur = conn.cursor()
 
-cur.execute('DROP TABLE IF EXISTS tbl_pflegedienstleitung;')
-cur.execute('''
-		CREATE TABLE IF NOT EXISTS tbl_pflegedienstleitung (
-			id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-			ik VARCHAR(255),
-			standort_nummer VARCHAR(255),
-			titel VARCHAR(255),
-			vorname VARCHAR(255),
-			nachname VARCHAR(255),
-			position VARCHAR(255),
-			vorwahl VARCHAR(255),
-			rufnummer VARCHAR(255),
-			durchwahl VARCHAR(255),
-			email VARCHAR(255),
-			created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)
-		ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
-		AUTO_INCREMENT=1;
-		''')
-
 def createTableHospital():
 	#cur.execute('USE huesers')
 	cur.execute('DROP TABLE IF EXISTS tbl_hospitalData;')
@@ -60,7 +41,7 @@ def openQualiBerichte(file):
 		return(bsObj)
 
 # function will look for person data (pflegedienstleitung, aerztliche Leitung etc.)
-def getPerson(person): 
+def getTag(person): 
 	person = bsObj.find(person)
 	return person
 
@@ -72,7 +53,7 @@ INSERT INTO tbl_pflegedienstleitung (ik,standort_nummer,titel, vorname, nachname
 pathToXMLfiles = "../Qualitaetsberichte/Berichte-KH/*.xml"
 # create list ob xml files in the prespecified path
 globObj = glob.glob(pathToXMLfiles)
-globObj = globObj[0:10]
+globObj = globObj[0:3]
 cnt = 0
 absolut =  float(len(globObj))
 
@@ -83,26 +64,63 @@ for xmlFile in globObj:
 		if(not '-99-' in xmlFile):
 			print 'Data extraction started.'
 			bsObj = openQualiBerichte(xmlFile)
-			person = getPerson('pflegedienstleitung')
-			tagLst = ['titel', 'vorname', 'nachname', 'position', 
-					  'vorwahl', 'rufnummer', 'durchwahl', 'email']
+			# Adressdaten
+			currentTag = getTag('kontaktdaten')
+			tagsKrankenhausAdresse = ['name', 'ik', 'standortnummer', 'strasse', 
+									  'hausnummer', 'postleitzahl', 'ort']
 			ik = re.findall('[0-9]{9}', xmlFile)[0]
 			standortnummer = re.findall('-[0-9]{2}-', xmlFile)[0]
 			standortnummer = re.findall('[0-9]{2}', standortnummer)[0]
 			valueLst = [ik, standortnummer]
-			for tag in tagLst:
+
+			for tag in tagsKrankenhausAdresse:
 				try:
-					currentValue = person.find(tag).string
+					currentValue = currentTag.find(tag).string
 					valueLst.append(currentValue)
 				except:
 					currentValue = None
 					valueLst.append(currentValue)
-			cur.execute(sql_insert_pdf % tuple(valueLst))
-			print('data inserted, %', relative)
+
+			# Trägerdaten
+			currentTag = getTag('krankenhaustraeger')
+			tagsKrankenhausTraeger = ['name', 'art']
+			for tag in tagsKrankenhausTraeger:
+				try:
+					currentValue = currentTag.find(tag).string
+					valueLst.append(currentValue)
+				except:
+					currentValue = None
+					valueLst.append(currentValue)
+			
+			currentValue = bsObj.find('anzahl_betten').string
+			valueLst.append(currentValue)
+			print 'Adresse: ', valueLst
+			
+			# Demografische Daten
+			currentTag = getTag('fallzahlen')
+			tagsKrankenhausFallzahlen = ['vollstationaere_fallzahl', 'teilstationaere_fallzahl', 'ambulante_fallzahl']
+			for tag in tagsKrankenhausFallzahlen:
+				try:
+					currentValue = currentTag.find(tag).string
+					valueLst.append(currentValue)
+				except:
+					currentValue = None
+					valueLst.append(currentValue)
+			print valueLst	
+	
+
+
+
+
+
+			
+			#cur.execute(sql_insert_pdf % tuple(valueLst))
+			#print('data inserted, %', relative)
+
+
 	except:
 		print('Error occured Inserting NULLS, %', relative)
-		cur.execute(sql_insert_pdf % tuple(None, None, None, None, None, None, None, None, None, None))
-
+		#cur.execute(sql_insert_pdf % tuple(None, None, None, None, None, None, None, None, None, None))
 conn.commit()
 cur.close() 
 conn.close()
