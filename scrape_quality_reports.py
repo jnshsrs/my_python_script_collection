@@ -7,41 +7,47 @@ import pymysql
 import glob
 import re
 
-#  pw = raw_input('Enter DB password')
+import sys # encoding=utf8
+reload(sys)
+sys.setdefaultencoding('utf8')
 
+#pw = raw_input('Enter DB password:  ')
+pw = "6kY6a:D*HL"
 conn = pymysql.connect(host='131.173.88.189', unix_socket='/var/run/mysqld/mysqld.sock', 
-	user='huesers', passwd= '6kY6a:D*HL', db='huesers', charset='utf8mb4')
+	user='huesers', passwd= pw, db='huesers', charset='utf8')
 cur = conn.cursor()
 
-def createTablePDL():
-	#cur.execute('USE huesers')
-	cur.execute('DROP TABLE IF EXISTS tbl_pflegedienstleitung;')
-	cur.execute('''
+cur.execute('DROP TABLE IF EXISTS tbl_pflegedienstleitung;')
+cur.execute('''
 		CREATE TABLE IF NOT EXISTS tbl_pflegedienstleitung (
 			id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-			ik VARCHAR(255) NOT NULL,
-			standort_nummer INT NOT NULL
-			titel VARCHAR(255) NOT NULL,
-			vorname VARCHAR(255) NOT NULL,
-			nachname VARCHAR(255) NOT NULL,
-			position VARCHAR(255) NOT NULL,
+			ik VARCHAR(255),
+			standort_nummer VARCHAR(255),
+			titel VARCHAR(255),
+			vorname VARCHAR(255),
+			nachname VARCHAR(255),
+			position VARCHAR(255),
+			vorwahl VARCHAR(255),
+			rufnummer VARCHAR(255),
+			durchwahl VARCHAR(255),
 			email VARCHAR(255),
 			created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)
+		ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+		AUTO_INCREMENT=1;
 		''')
 
-def createTablePDL():
+def createTableHospital():
 	#cur.execute('USE huesers')
-
 	cur.execute('DROP TABLE IF EXISTS tbl_hospitalData;')
 	cur.execute('''
 		CREATE TABLE IF NOT EXISTS tbl_hospitalData (
 			id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-			ik VARCHAR(255) NOT NULL,
-			standort_nummer INT NOT NULL
-			straße VARCHAR(255) NOT NULL,
-			hausnummer VARCHAR(255) NOT NULL,
-			postleitzahl VARCHAR(255) NOT NULL,
-			ort VARCHAR(255) NOT NULL,
+			ik VARCHAR(255),
+			standort_nummer VARCHAR(255),
+			straße VARCHAR(255),
+			hausnummer VARCHAR(255),
+			postleitzahl VARCHAR(255),
+			ort VARCHAR(255),
 			created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)
 		''')
 
@@ -58,36 +64,44 @@ def getPerson(person):
 	person = bsObj.find(person)
 	return person
 
-# my task for scraping hospital data
-filePath = "../Qualitätsberichte/Berichte-KH/260000066-00-2013-xml.xml"
-bsObj = openQualiBerichte(filePath)
-person = getPerson('pflegedienstleitung')
+sql_insert_pdf = '''
+INSERT INTO tbl_pflegedienstleitung (ik,standort_nummer,titel, vorname, nachname, position, vorwahl, rufnummer, durchwahl, email)
+	VALUES ('%s','%s','%s','%s', '%s', '%s', '%s', '%s', '%s', '%s'); 
+'''
 
-tagLst = ['titel', 'vorname', 'nachname', 'position', 
-		  'vorwahl', 'rufnummer', 'durchwahl', 'email']
-print re.findall('[0-9]{9}', filePath)[0]
-standortnummer = re.findall('-[0-9]{2}-', filePath)[0]
-standortnummer = re.findall('[0-9]{2}', standortnummer)[0]
-print standortnummer
-for tag in tagLst:
+pathToXMLfiles = "../Qualitaetsberichte/Berichte-KH/*.xml"
+# create list ob xml files in the prespecified path
+globObj = glob.glob(pathToXMLfiles)
+globObj = globObj[0:10]
+cnt = 0
+absolut =  float(len(globObj))
+
+for xmlFile in globObj:
+	cnt += 1
+	relative = float(cnt) / absolut 
 	try:
-		print person.find(tag).string
+		if(not '-99-' in xmlFile):
+			print 'Data extraction started.'
+			bsObj = openQualiBerichte(xmlFile)
+			person = getPerson('pflegedienstleitung')
+			tagLst = ['titel', 'vorname', 'nachname', 'position', 
+					  'vorwahl', 'rufnummer', 'durchwahl', 'email']
+			ik = re.findall('[0-9]{9}', xmlFile)[0]
+			standortnummer = re.findall('-[0-9]{2}-', xmlFile)[0]
+			standortnummer = re.findall('[0-9]{2}', standortnummer)[0]
+			valueLst = [ik, standortnummer]
+			for tag in tagLst:
+				try:
+					currentValue = person.find(tag).string
+					valueLst.append(currentValue)
+				except:
+					currentValue = None
+					valueLst.append(currentValue)
+			cur.execute(sql_insert_pdf % tuple(valueLst))
+			print('data inserted, %', relative)
 	except:
-		print 'NULL'
-# person data is a list which is filled with
-
-# ik, standordnummer, titel, vorname, nachnameposition
-personData = []
-
-# select a tag and then iterate over it
-#for element in person:
-# 	if not element.name == None:
-# 		varlist.append(element.string)
-
-#print varlist
-#var_string = "%s, %s, %s, %s"
-#query_string = '''INSERT INTO tbl_pflegedienstleitung (titel, vorname, nachname, position) VALUES (%s);''' % var_string
-#cur.execute(query_string, varlist)
+		print('Error occured Inserting NULLS, %', relative)
+		cur.execute(sql_insert_pdf % tuple(None, None, None, None, None, None, None, None, None, None))
 
 conn.commit()
 cur.close() 
